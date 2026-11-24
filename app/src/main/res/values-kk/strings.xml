@@ -57,6 +57,8 @@
     <string name="theme_amber">Кәріптас</string>
     <string name="visualization">Визуализация</string>
     <string name="smooth_visualization">Бірқалыпты визуализация</string>
+    <string name="startup_animation">Іске қосу анимациясы</string>
+    <string name="intro_caption">Жолдағы интернет-радио</string>
     <string name="buffer_amount">Буферде %1$.1f с</string>
     <string name="buffer_amount_with_transfer">Буферде %1$.1f с · %2$s жүктелді</string>
     <string name="spectrum">Спектр</string>

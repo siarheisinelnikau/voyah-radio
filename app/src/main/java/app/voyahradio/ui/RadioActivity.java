@@ -142,6 +142,7 @@ public final class RadioActivity extends Activity {
         buildLayout();
         search.setText(query);
         render(model.state());
+        RadioIntro.showOnLaunch(this, saved, app.preferences().startupAnimation());
     }
 
     @Override protected void onStart() {

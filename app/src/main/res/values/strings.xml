@@ -57,6 +57,8 @@
     <string name="theme_amber">Amber</string>
     <string name="visualization">Visualization</string>
     <string name="smooth_visualization">Smooth visualization</string>
+    <string name="startup_animation">Startup animation</string>
+    <string name="intro_caption">Internet radio on the road</string>
     <string name="buffer_amount">%1$.1f s buffered</string>
     <string name="buffer_amount_with_transfer">%1$.1f s buffered · %2$s received</string>
     <string name="spectrum">Spectrum</string>

@@ -48,6 +48,7 @@ public final class RadioSettingsActivity extends Activity {
     private LinearLayout stationRows;
     private Switch hideUnavailable;
     private Switch smoothVisualization;
+    private Switch startupAnimation;
     private TextView checkButton;
     private TextView checkStatus;
     private RadioTab displayedGroup;
@@ -152,6 +153,11 @@ public final class RadioSettingsActivity extends Activity {
         smoothVisualization.setOnCheckedChangeListener((button, enabled) -> {
             if (!updating) model.setSmoothVisualization(enabled);
         });
+        startupAnimation = toggle(getString(R.string.startup_animation));
+        appearance.addView(startupAnimation, size(MATCH_PARENT, WRAP_CONTENT));
+        startupAnimation.setOnCheckedChangeListener((button, enabled) -> {
+            if (!updating) model.setStartupAnimation(enabled);
+        });
 
         LinearLayout tabs = card(controls, R.string.visible_tabs);
         LinearLayout tabRow = tabs;
@@ -245,6 +251,7 @@ public final class RadioSettingsActivity extends Activity {
             chooseOptions(themes, state.theme);
             chooseOptions(visualizations, state.visualization);
             smoothVisualization.setChecked(state.smoothVisualization);
+            startupAnimation.setChecked(state.startupAnimation);
             hideUnavailable.setChecked(state.options.hideUnavailable);
             checkButton.setText(state.scan == RadioSettingsViewModel.ScanStatus.RUNNING
                     ? R.string.cancel_check : R.string.check_availability);

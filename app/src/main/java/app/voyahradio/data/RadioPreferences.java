@@ -73,6 +73,14 @@ public final class RadioPreferences {
         prefs.edit().putBoolean("smooth_visualization", enabled).apply();
     }
 
+    public boolean startupAnimation() {
+        return prefs.getBoolean("startup_animation", true);
+    }
+
+    public void setStartupAnimation(boolean enabled) {
+        prefs.edit().putBoolean("startup_animation", enabled).apply();
+    }
+
     public CatalogOptions catalogOptions() {
         Set<RadioTab> hiddenTabs = EnumSet.noneOf(RadioTab.class);
         for (String key : prefs.getStringSet("hidden_tabs", Collections.emptySet())) {

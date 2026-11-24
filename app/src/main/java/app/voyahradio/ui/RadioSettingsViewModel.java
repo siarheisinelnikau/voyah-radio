@@ -31,6 +31,7 @@ final class RadioSettingsViewModel {
         final String theme;
         final String visualization;
         final boolean smoothVisualization;
+        final boolean startupAnimation;
         final CatalogOptions options;
         final List<Station> stations;
         final ScanStatus scan;
@@ -40,13 +41,14 @@ final class RadioSettingsViewModel {
         final int unknown;
 
         State(RadioTab group, String language, String theme, String visualization,
-              boolean smoothVisualization, CatalogOptions options, List<Station> stations,
+              boolean smoothVisualization, boolean startupAnimation, CatalogOptions options, List<Station> stations,
               ScanStatus scan, int checked, int total, int unavailable, int unknown) {
             this.group = group;
             this.language = language;
             this.theme = theme;
             this.visualization = visualization;
             this.smoothVisualization = smoothVisualization;
+            this.startupAnimation = startupAnimation;
             this.options = options;
             this.stations = Collections.unmodifiableList(stations);
             this.scan = scan;
@@ -83,7 +85,7 @@ final class RadioSettingsViewModel {
         CatalogOptions options = preferences.catalogOptions();
         List<Station> stations = options.stationsForTab(catalog.all(), group, preferences.favorites());
         return new State(group, preferences.language(), preferences.theme(), preferences.visualization(),
-                preferences.smoothVisualization(), options, stations, scan, checked, catalog.all().size(),
+                preferences.smoothVisualization(), preferences.startupAnimation(), options, stations, scan, checked, catalog.all().size(),
                 unavailable, unknown);
     }
 
@@ -112,6 +114,11 @@ final class RadioSettingsViewModel {
 
     void setSmoothVisualization(boolean enabled) {
         preferences.setSmoothVisualization(enabled);
+        publish();
+    }
+
+    void setStartupAnimation(boolean enabled) {
+        preferences.setStartupAnimation(enabled);
         publish();
     }
 
