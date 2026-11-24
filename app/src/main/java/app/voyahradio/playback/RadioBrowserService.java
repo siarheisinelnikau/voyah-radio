@@ -42,14 +42,11 @@ public final class RadioBrowserService extends MediaBrowserService {
         return uid + "/" + packageName;
     }
 
-    @Override public void onCreate() {
-        super.onCreate();
-        bound = bindService(new Intent(this, RadioService.class), connection, BIND_AUTO_CREATE);
-    }
-
     @Override public BrowserRoot onGetRoot(String clientPackageName, int clientUid, Bundle rootHints) {
         if (clientUid != Process.SYSTEM_UID) return null;
         CLIENTS.add(key(clientPackageName, clientUid));
+        // The radio service starts only for an accepted client; Android holds the connection until the token is set.
+        if (!bound) bound = bindService(new Intent(this, RadioService.class), connection, BIND_AUTO_CREATE);
         return new BrowserRoot(ROOT, null);
     }
 

@@ -28,10 +28,12 @@
             android:name=".playback.RadioService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
-        <!-- The head unit's home screen media card connects here (only system apps are accepted). -->
+        <!-- The head unit's home screen media card connects here. The permission is a platform one that only system
+             apps hold (the launcher runs as the system uid); onGetRoot also accepts only the system uid. -->
         <service
             android:name=".playback.RadioBrowserService"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.MEDIA_CONTENT_CONTROL">
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
