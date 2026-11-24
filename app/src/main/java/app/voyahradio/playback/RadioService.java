@@ -17,6 +17,7 @@ import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.media.MediaMetadata;
 import android.media.session.MediaSession;
+import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
 import android.net.Network;
 import android.os.Binder;
@@ -171,14 +172,16 @@ public final class RadioService extends Service {
         session.setSessionActivity(openApp);
         session.setPlaybackToLocal(audioAttributes);
         session.setCallback(new MediaSession.Callback() {
-            @Override public void onPlay() { resumePlayback(); }
+            // A media widget that browsed the radio (RadioBrowserService) may start playback while the player is
+            // closed; media buttons still act only while the player is on screen or playing.
+            @Override public void onPlay() { resumePlayback(fromBrowserClient()); }
             @Override public void onPause() { pause(); }
             @Override public void onStop() {
                 if (foreground) finishPlayback(STOPPED);
                 else if (windowFocused) publish(STOPPED);
             }
-            @Override public void onSkipToNext() { step(1); }
-            @Override public void onSkipToPrevious() { step(-1); }
+            @Override public void onSkipToNext() { step(1, fromBrowserClient()); }
+            @Override public void onSkipToPrevious() { step(-1, fromBrowserClient()); }
 
             @Override public boolean onMediaButtonEvent(Intent intent) {
                 KeyEvent key = Build.VERSION.SDK_INT >= 33
@@ -186,13 +189,13 @@ public final class RadioService extends Service {
                         : intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
                 if (key == null) return false;
                 Runnable command = switch (key.getKeyCode()) {
-                    case KeyEvent.KEYCODE_MEDIA_PLAY -> this::onPlay;
+                    case KeyEvent.KEYCODE_MEDIA_PLAY -> () -> resumePlayback(false);
                     case KeyEvent.KEYCODE_MEDIA_PAUSE -> this::onPause;
                     case KeyEvent.KEYCODE_MEDIA_STOP -> this::onStop;
-                    case KeyEvent.KEYCODE_MEDIA_NEXT -> this::onSkipToNext;
-                    case KeyEvent.KEYCODE_MEDIA_PREVIOUS -> this::onSkipToPrevious;
+                    case KeyEvent.KEYCODE_MEDIA_NEXT -> () -> step(1, false);
+                    case KeyEvent.KEYCODE_MEDIA_PREVIOUS -> () -> step(-1, false);
                     case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_HEADSETHOOK ->
-                            () -> { if (foreground) onPause(); else onPlay(); };
+                            () -> { if (foreground) onPause(); else resumePlayback(false); };
                     default -> null;
                 };
                 if (command == null) return super.onMediaButtonEvent(intent);
@@ -244,8 +247,8 @@ public final class RadioService extends Service {
                 play(requested);
             }
             case PAUSE -> pause();
-            case PREVIOUS -> { if (foreground) step(-1); }
-            case NEXT -> { if (foreground) step(1); }
+            case PREVIOUS -> { if (foreground) step(-1, false); }
+            case NEXT -> { if (foreground) step(1, false); }
             default -> { if (!foreground) stopSelf(startId); }
         }
         return START_NOT_STICKY;
@@ -301,8 +304,19 @@ public final class RadioService extends Service {
                         NotificationManager.IMPORTANCE_LOW));
     }
 
-    private void step(int direction) {
-        if (foreground || windowFocused) playNeighbour(direction);
+    /** The session's token, for media browsers (RadioBrowserService). */
+    public MediaSession.Token sessionToken() {
+        return session.getSessionToken();
+    }
+
+    /** Only inside a session callback: whether the command comes from a media widget that browsed the radio. */
+    private boolean fromBrowserClient() {
+        MediaSessionManager.RemoteUserInfo caller = session.getCurrentControllerInfo();
+        return caller != null && RadioBrowserService.isClient(caller.getPackageName(), caller.getUid());
+    }
+
+    private void step(int direction, boolean browserClient) {
+        if (foreground || windowFocused || browserClient) playNeighbour(direction);
     }
 
     private void playNeighbour(int direction) {
@@ -316,8 +330,8 @@ public final class RadioService extends Service {
         requestPlay(playlist.get(next), tab);
     }
 
-    private void resumePlayback() {
-        if (foreground || windowFocused) resume();
+    private void resumePlayback(boolean browserClient) {
+        if (foreground || windowFocused || browserClient) resume();
     }
 
     private void resume() {

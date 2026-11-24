@@ -28,5 +28,13 @@
             android:name=".playback.RadioService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+        <!-- The head unit's home screen media card connects here (only system apps are accepted). -->
+        <service
+            android:name=".playback.RadioBrowserService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>
