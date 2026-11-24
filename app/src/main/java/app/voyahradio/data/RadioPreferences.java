@@ -33,6 +33,15 @@ public final class RadioPreferences {
         prefs.edit().putString("last_station", id).apply();
     }
 
+    /** The catalog tab that was open last, so the radio opens where it was left. */
+    public RadioTab lastTab() {
+        return RadioTab.parse(prefs.getString("last_tab", null), RadioTab.BELARUS);
+    }
+
+    public void rememberTab(RadioTab tab) {
+        prefs.edit().putString("last_tab", tab.name()).apply();
+    }
+
     public Set<String> favorites() {
         return new HashSet<>(prefs.getStringSet("favorites", Collections.emptySet()));
     }

@@ -100,6 +100,7 @@ final class RadioViewModel {
     void chooseTab(RadioTab tab) {
         if (this.tab == tab) return;
         this.tab = tab;
+        preferences.rememberTab(tab);
         render.accept(state());
     }
 

@@ -140,6 +140,7 @@ public final class RadioService extends Service {
     private int streamIndex;
     private Runnable deadline;
     private Runnable retry;
+    private OemMediaKeys wheelKeys;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -205,6 +206,25 @@ public final class RadioService extends Service {
         IntentFilter filter = new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(noisyReceiver, filter, RECEIVER_NOT_EXPORTED);
         else registerReceiver(noisyReceiver, filter);
+        wheelKeys = OemMediaKeys.attach(this, this::onWheelKey);
+    }
+
+    /**
+     * The firmware sends the steering wheel's media keys here only while the radio holds media audio focus, the way
+     * it controls its own players, so they act without the checks for a visible or playing radio.
+     */
+    private void onWheelKey(int key) {
+        switch (key) {
+            case OemMediaKeys.NEXT -> playNeighbour(1);
+            case OemMediaKeys.PREVIOUS -> playNeighbour(-1);
+            case OemMediaKeys.PLAY_PAUSE -> {
+                if (foreground) pause();
+                else resume();
+            }
+            case OemMediaKeys.PLAY -> resume();
+            case OemMediaKeys.PAUSE -> pause();
+            default -> { }
+        }
     }
 
     @Override public IBinder onBind(Intent intent) {
@@ -282,7 +302,10 @@ public final class RadioService extends Service {
     }
 
     private void step(int direction) {
-        if (!foreground && !windowFocused) return;
+        if (foreground || windowFocused) playNeighbour(direction);
+    }
+
+    private void playNeighbour(int direction) {
         CatalogOptions options = preferences.catalogOptions();
         RadioTab tab = options.visibleTab(currentTab);
         List<Station> playlist = options.visibleStations(catalog.all(), tab, preferences.favorites());
@@ -294,7 +317,11 @@ public final class RadioService extends Service {
     }
 
     private void resumePlayback() {
-        if ((!foreground && !windowFocused) || snapshot().active() || waitingForFocus) return;
+        if (foreground || windowFocused) resume();
+    }
+
+    private void resume() {
+        if (snapshot().active() || waitingForFocus) return;
         CatalogOptions options = preferences.catalogOptions();
         RadioTab tab = options.visibleTab(currentTab);
         if (station != null && options.shows(station) && tab.contains(station, preferences.favorites())) {
@@ -509,6 +536,13 @@ public final class RadioService extends Service {
     }
 
     private void focusChanged(int change) {
+        // The head unit's audio policy calls this listener on a binder thread instead of the handler it was given.
+        // The player belongs to the main thread: released there it throws before stopping, so the station would
+        // keep playing after the radio had already let go of it.
+        if (Looper.myLooper() != handler.getLooper()) {
+            handler.post(() -> focusChanged(change));
+            return;
+        }
         if (!foreground) return;
         switch (change) {
             case AudioManager.AUDIOFOCUS_LOSS -> finishPlayback(PAUSED);
@@ -662,6 +696,7 @@ public final class RadioService extends Service {
     }
 
     @Override public void onDestroy() {
+        if (wheelKeys != null) wheelKeys.detach();
         unregisterReceiver(noisyReceiver);
         cancelRetry();
         releasePlayer();

@@ -119,7 +119,7 @@ public final class RadioActivity extends Activity {
         super.onCreate(saved);
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
         RadioApp app = (RadioApp) getApplication();
-        RadioTab tab = saved == null ? RadioTab.BELARUS
+        RadioTab tab = saved == null ? app.preferences().lastTab()
                 : RadioTab.parse(saved.getString("tab"), RadioTab.BELARUS);
         String query = saved == null ? "" : saved.getString("query", "");
         model = new RadioViewModel(app.catalog(), app.preferences(), new RadioViewModel.Controls() {
@@ -477,7 +477,9 @@ public final class RadioActivity extends Activity {
 
         boolean newFilter = displayedTab != state.tab || !state.query.equals(displayedQuery);
         stationAdapter.update(state);
-        if (newFilter) stationList.setSelection(0);
+        // The radio opens on the row of the last station with the row above it in view; a new tab or search starts
+        // at the top.
+        if (newFilter) stationList.setSelection(displayedTab == null ? Math.max(0, rowOf(state) - 1) : 0);
         displayedTab = state.tab;
         displayedQuery = state.query;
 
@@ -568,6 +570,11 @@ public final class RadioActivity extends Activity {
                 : getString(R.string.buffer_amount_with_transfer, bufferedSeconds,
                         Formatter.formatShortFileSize(this, received)));
         bufferPanel.postDelayed(bufferTick, BUFFER_REFRESH_MS);
+    }
+
+    private int rowOf(RadioViewModel.State state) {
+        int index = state.selected == null ? -1 : state.stations.indexOf(state.selected);
+        return index < 0 ? 0 : index / listColumns;
     }
 
     private final class StationAdapter extends BaseAdapter {

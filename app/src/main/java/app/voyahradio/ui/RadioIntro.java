@@ -5,6 +5,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -45,11 +46,12 @@ import static app.voyahradio.ui.IntroPacing.span;
  * and a tuning needle sweeps along the scale under the name. When the needle locks on the station, the accent
  * charges the steel from the mast outward and two rings leave the antenna.
  *
- * <p>The intro plays each time the radio comes back on screen from another app or the home screen, and the radio
- * itself never goes away. On a return the backdrop spreads over the radio from the antenna like a wave while the
- * radio steps back. After a cold start the backdrop covers the window from the first frame, matching the window
- * background, while the radio lays itself out underneath. Every intro ends with the mark flying past the viewer as
- * the iris opens from the antenna and the radio steps forward into place. A tap runs that ending at once.
+ * <p>The intro plays each time the radio comes back on screen from another app or the home screen, and the radio itself
+ * never goes away. On a return to a phone or tablet, where Android shows the radio as it was left, the backdrop spreads
+ * over the radio from the antenna like a wave while the radio steps back. After a cold start, and on car head units,
+ * which show the plain window background on the way back instead, the backdrop covers the window from the first frame,
+ * matching that background, while the radio lays itself out underneath. Every intro ends with the mark flying past the
+ * viewer as the iris opens from the antenna and the radio steps forward into place. A tap runs that ending at once.
  */
 @SuppressLint("ViewConstructor") // Created in code with the activity's run settings.
 final class RadioIntro extends View {
@@ -103,6 +105,8 @@ final class RadioIntro extends View {
 
     private static final int STEADY_FRAMES = 6;
     private static final long SETTLE_LIMIT_NANOS = 450_000_000L;
+    /** Beyond the slowest pace the clock allows, the intro removes itself, so it can never stay over the app. */
+    private static final float WATCHDOG_SLACK_MS = 1_500f;
     private static final float CHARGE_DEPTH = .82f;
     /** How far the radio steps back behind the backdrop, as a share of its size. */
     private static final float CONTENT_DEPTH = .08f;
@@ -215,6 +219,7 @@ final class RadioIntro extends View {
     private float introMillis;
     /** How far a tap has run the ending, 0..1. */
     private float dismissed;
+    private final Runnable watchdog = this::finish;
 
     /**
      * Called from the activity's {@code onStart}. Plays the intro when the radio comes back on screen from another
@@ -231,8 +236,10 @@ final class RadioIntro extends View {
         View previous = decor.findViewWithTag(TAG);
         if (previous instanceof RadioIntro) ((RadioIntro) previous).finish();
         // A window that is already attached shows the radio as it was left, from a snapshot or on its own; a new
-        // window starts from the plain window background, which the backdrop matches.
-        boolean veiled = held < 0f && decor.isAttachedToWindow() && !interrupted;
+        // window starts from the plain window background, which the backdrop matches. Car head units take no task
+        // snapshots and show that background on every return as well.
+        boolean veiled = held < 0f && decor.isAttachedToWindow() && !interrupted
+                && !activity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
         interrupted = false;
         decor.addView(new RadioIntro(activity, Math.max(scale, .01f), held, veiled),
                 new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -349,8 +356,13 @@ final class RadioIntro extends View {
         float refresh = display == null ? 60f : display.getRefreshRate();
         frameNanos = (long) (1_000_000_000L / (refresh >= 20f ? refresh : 60f));
         settle = new IntroPacing.Settle(frameNanos, STEADY_FRAMES);
-        if (heldMillis >= 0f) introMillis = heldMillis;
-        else schedule();
+        if (heldMillis >= 0f) {
+            introMillis = heldMillis;
+        } else {
+            schedule();
+            float limit = SETTLE_LIMIT_NANOS / 1_000_000f + Timeline.END * 1.5f + Timeline.DISMISS;
+            postDelayed(watchdog, (long) (limit * durationScale + WATCHDOG_SLACK_MS));
+        }
     }
 
     @Override protected void onDetachedFromWindow() {
@@ -373,6 +385,8 @@ final class RadioIntro extends View {
     }
 
     @Override public boolean onTouchEvent(MotionEvent event) {
+        // Until a returning intro draws, the radio shows through it, and touches reach the radio as well.
+        if (veiled && clock == null && !dismissRequested && heldMillis < 0f) return false;
         if (event.getActionMasked() == MotionEvent.ACTION_DOWN) performClick();
         return true;
     }
@@ -421,6 +435,7 @@ final class RadioIntro extends View {
         if (finished) return;
         finished = true;
         Choreographer.getInstance().removeFrameCallback(tick);
+        removeCallbacks(watchdog);
         placeContent(0f);
         ViewParent parent = getParent();
         if (parent instanceof ViewGroup) ((ViewGroup) parent).removeView(this);
