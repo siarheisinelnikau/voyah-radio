@@ -261,7 +261,7 @@ public final class RadioService extends Service {
     }
 
     public void pause() {
-        if (foreground) finishPlayback(PAUSED);
+        if (foreground) finishPlayback(PAUSED, true);
     }
 
     public void setWindowFocused(boolean hasFocus) {
@@ -543,7 +543,15 @@ public final class RadioService extends Service {
             handler.post(() -> focusChanged(change));
             return;
         }
-        if (!foreground) return;
+        if (!foreground) {
+            // A paused radio keeps focus until another source takes it for good.
+            if (change == AudioManager.AUDIOFOCUS_LOSS && focused) {
+                focused = false;
+                audio.abandonAudioFocusRequest(focusRequest);
+                stopSelf();
+            }
+            return;
+        }
         switch (change) {
             case AudioManager.AUDIOFOCUS_LOSS -> finishPlayback(PAUSED);
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
@@ -567,16 +575,27 @@ public final class RadioService extends Service {
     }
 
     private void finishPlayback(Playback.Status result) {
+        finishPlayback(result, false);
+    }
+
+    /**
+     * Ends playback. A pause keeps media focus and leaves the service started, so the firmware still counts the radio
+     * as the current source and the steering wheel can resume it, as with the firmware's own players. A stop, another
+     * source taking focus, or Android stopping the idle service in the background gives the focus back.
+     */
+    private void finishPlayback(Playback.Status result, boolean keepSource) {
         cancelRetry();
         releasePlayer();
-        if (focused) audio.abandonAudioFocusRequest(focusRequest);
-        focused = false;
+        if (focused && !keepSource) {
+            audio.abandonAudioFocusRequest(focusRequest);
+            focused = false;
+        }
         waitingForFocus = false;
         foreground = false;
         stopForeground(STOP_FOREGROUND_REMOVE);
         publish(result);
         updateSessionActive();
-        stopSelf();
+        if (!keepSource) stopSelf();
     }
 
     private Playback snapshot() {
