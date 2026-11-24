@@ -142,11 +142,11 @@ public final class RadioActivity extends Activity {
         buildLayout();
         search.setText(query);
         render(model.state());
-        RadioIntro.showOnLaunch(this, saved, app.preferences().startupAnimation());
     }
 
     @Override protected void onStart() {
         super.onStart();
+        RadioIntro.onActivityStart(this, ((RadioApp) getApplication()).preferences().startupAnimation());
         uiStarted = true;
         bound = bindService(new Intent(this, RadioService.class), connection, Context.BIND_AUTO_CREATE);
     }
@@ -175,7 +175,14 @@ public final class RadioActivity extends Activity {
         service = null;
         if (bound) unbindService(connection);
         bound = false;
+        RadioIntro.onActivityStop(this);
         super.onStop();
+    }
+
+    @Override public void startActivityForResult(Intent intent, int requestCode, Bundle options) {
+        // Settings and other screens opened from here are part of the radio, so coming back skips the intro.
+        RadioIntro.onOwnScreenOpened();
+        super.startActivityForResult(intent, requestCode, options);
     }
 
     @Override public void onWindowFocusChanged(boolean hasFocus) {

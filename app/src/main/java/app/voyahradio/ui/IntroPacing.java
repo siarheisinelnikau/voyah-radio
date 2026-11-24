@@ -36,6 +36,8 @@ final class IntroPacing {
         static final Easing SPRING = new Easing(.22f, 1.18f, .36f, 1f);
         /** Overshoots by about a tenth halfway through and settles back. */
         static final Easing BACK = new Easing(.34f, 1.56f, .64f, 1f);
+        /** Starts slowly and leaves at full speed, for a mark that flies past the viewer. */
+        static final Easing ACCELERATE = new Easing(.4f, 0f, 1f, 1f);
 
         private final float x1;
         private final float y1;
@@ -81,6 +83,34 @@ final class IntroPacing {
         private static float slope(float t, float p1, float p2) {
             float u = 1f - t;
             return 3f * u * u * p1 + 6f * u * t * (p2 - p1) + 3f * t * t * (1f - p2);
+        }
+    }
+
+    /**
+     * Decides which starts of the activity bring it back from outside the app: the first start in a process and
+     * every start after the activity left the screen for another app or the home screen. A stop for a
+     * configuration change and a screen the activity opened itself, such as its settings or a system picker, do
+     * not count, so coming back from them shows the app at once.
+     */
+    static final class Arrivals {
+        private boolean away = true;
+        private boolean handedOff;
+
+        /** The activity opens another screen itself, so its next start returns from that screen. */
+        void handOff() {
+            handedOff = true;
+        }
+
+        void onStop(boolean changingConfigurations) {
+            if (!changingConfigurations && !handedOff) away = true;
+        }
+
+        /** Answers whether this start brings the activity back from outside the app. */
+        boolean onStart() {
+            boolean arrived = away;
+            away = false;
+            handedOff = false;
+            return arrived;
         }
     }
 
