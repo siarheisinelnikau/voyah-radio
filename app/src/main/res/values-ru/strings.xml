@@ -58,6 +58,8 @@
     <string name="visualization">Визуализация</string>
     <string name="smooth_visualization">Плавная визуализация</string>
     <string name="startup_animation">Анимация при запуске</string>
+    <string name="playback_section">Воспроизведение</string>
+    <string name="play_on_open">Включать последнюю станцию при открытии</string>
     <string name="intro_caption">Интернет-радио в дороге</string>
     <string name="buffer_amount">В буфере %1$.1f с</string>
     <string name="buffer_amount_with_transfer">В буфере %1$.1f с · получено %2$s</string>

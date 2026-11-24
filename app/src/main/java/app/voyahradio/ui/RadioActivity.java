@@ -142,6 +142,8 @@ public final class RadioActivity extends Activity {
         buildLayout();
         search.setText(query);
         render(model.state());
+        // Opening the radio, not coming back to it, starts the last station; a paused radio stays paused on return.
+        if (saved == null && app.preferences().playOnOpen()) model.playLast();
     }
 
     @Override protected void onStart() {

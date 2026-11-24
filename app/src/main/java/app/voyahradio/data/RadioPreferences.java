@@ -90,6 +90,15 @@ public final class RadioPreferences {
         prefs.edit().putBoolean("startup_animation", enabled).apply();
     }
 
+    /** Whether the radio starts the last station when it opens, as a car radio does when it is switched on. */
+    public boolean playOnOpen() {
+        return prefs.getBoolean("play_on_open", true);
+    }
+
+    public void setPlayOnOpen(boolean enabled) {
+        prefs.edit().putBoolean("play_on_open", enabled).apply();
+    }
+
     public CatalogOptions catalogOptions() {
         Set<RadioTab> hiddenTabs = EnumSet.noneOf(RadioTab.class);
         for (String key : prefs.getStringSet("hidden_tabs", Collections.emptySet())) {

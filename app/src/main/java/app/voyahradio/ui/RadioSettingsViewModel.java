@@ -32,6 +32,7 @@ final class RadioSettingsViewModel {
         final String visualization;
         final boolean smoothVisualization;
         final boolean startupAnimation;
+        final boolean playOnOpen;
         final CatalogOptions options;
         final List<Station> stations;
         final ScanStatus scan;
@@ -41,14 +42,15 @@ final class RadioSettingsViewModel {
         final int unknown;
 
         State(RadioTab group, String language, String theme, String visualization,
-              boolean smoothVisualization, boolean startupAnimation, CatalogOptions options, List<Station> stations,
-              ScanStatus scan, int checked, int total, int unavailable, int unknown) {
+              boolean smoothVisualization, boolean startupAnimation, boolean playOnOpen, CatalogOptions options,
+              List<Station> stations, ScanStatus scan, int checked, int total, int unavailable, int unknown) {
             this.group = group;
             this.language = language;
             this.theme = theme;
             this.visualization = visualization;
             this.smoothVisualization = smoothVisualization;
             this.startupAnimation = startupAnimation;
+            this.playOnOpen = playOnOpen;
             this.options = options;
             this.stations = Collections.unmodifiableList(stations);
             this.scan = scan;
@@ -85,8 +87,8 @@ final class RadioSettingsViewModel {
         CatalogOptions options = preferences.catalogOptions();
         List<Station> stations = options.stationsForTab(catalog.all(), group, preferences.favorites());
         return new State(group, preferences.language(), preferences.theme(), preferences.visualization(),
-                preferences.smoothVisualization(), preferences.startupAnimation(), options, stations, scan, checked, catalog.all().size(),
-                unavailable, unknown);
+                preferences.smoothVisualization(), preferences.startupAnimation(), preferences.playOnOpen(), options,
+                stations, scan, checked, catalog.all().size(), unavailable, unknown);
     }
 
     void selectGroup(RadioTab selected) {
@@ -119,6 +121,11 @@ final class RadioSettingsViewModel {
 
     void setStartupAnimation(boolean enabled) {
         preferences.setStartupAnimation(enabled);
+        publish();
+    }
+
+    void setPlayOnOpen(boolean enabled) {
+        preferences.setPlayOnOpen(enabled);
         publish();
     }
 

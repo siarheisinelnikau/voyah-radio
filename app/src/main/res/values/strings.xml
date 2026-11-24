@@ -58,6 +58,8 @@
     <string name="visualization">Visualization</string>
     <string name="smooth_visualization">Smooth visualization</string>
     <string name="startup_animation">Startup animation</string>
+    <string name="playback_section">Playback</string>
+    <string name="play_on_open">Play the last station when the radio opens</string>
     <string name="intro_caption">Internet radio on the road</string>
     <string name="buffer_amount">%1$.1f s buffered</string>
     <string name="buffer_amount_with_transfer">%1$.1f s buffered · %2$s received</string>

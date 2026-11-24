@@ -114,6 +114,14 @@ final class RadioViewModel {
         if (station != null) controls.play(station.id, state().tab);
     }
 
+    /** Starts the station that played last, on the open tab when it has the station and otherwise on its own. */
+    void playLast() {
+        Station last = catalog.find(preferences.lastStation());
+        if (last == null || !preferences.catalogOptions().shows(last)) return;
+        RadioTab open = state().tab;
+        controls.play(last.id, open.contains(last, preferences.favorites()) ? open : last.group);
+    }
+
     void togglePlayback() {
         if (playback.active()) controls.pause();
         else select(state().selected);
