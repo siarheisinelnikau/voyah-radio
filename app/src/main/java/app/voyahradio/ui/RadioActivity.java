@@ -1,5 +1,6 @@
 package app.voyahradio.ui;
 
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
@@ -24,6 +25,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
@@ -59,6 +62,9 @@ import static app.voyahradio.ui.RadioGlyph.Kind.*;
 
 public final class RadioActivity extends Activity {
     private static final long BUFFER_REFRESH_MS = 200;
+    /** The search button is as large as the settings button; it opens into the field over this time. */
+    private static final int SEARCH_BUTTON_DP = 52;
+    private static final long SEARCH_MOTION_MS = 250;
 
     private final EnumMap<RadioTab, TextView> tabs = new EnumMap<>(RadioTab.class);
 
@@ -96,6 +102,13 @@ public final class RadioActivity extends Activity {
     private Set<RadioTab> displayedHiddenTabs = Collections.emptySet();
     private String displayedQuery;
     private String displayedStation;
+    private TextView title;
+    private FrameLayout searchBox;
+    private ValueAnimator searchMotion;
+    /** How far the search has opened, 0 for the button and 1 for the field. */
+    private float searchOpen;
+    private int searchWidth;
+    private boolean searchExpanded;
     private boolean touchingList;
     private int listScrollState = AbsListView.OnScrollListener.SCROLL_STATE_IDLE;
     /** The list scrolls because it follows the station, not because of the user. */
@@ -150,6 +163,15 @@ public final class RadioActivity extends Activity {
 
         buildLayout();
         search.setText(query);
+        if (!query.isEmpty()) {
+            // A search survives a recreated screen open, as it was.
+            searchExpanded = true;
+            searchBox.post(() -> {
+                searchWidth = expandedSearchWidth();
+                sizeField();
+                showSearch(1f);
+            });
+        }
         render(model.state());
         // Opening the radio, not coming back to it, starts the last station; a paused radio stays paused on return.
         if (saved == null && app.preferences().playOnOpen()) model.playLast();
@@ -232,8 +254,10 @@ public final class RadioActivity extends Activity {
             titleRow.setGravity(Gravity.CENTER_VERTICAL);
             header.addView(titleRow, wrap(MATCH_PARENT));
         }
-        TextView title = text(24, getColor(R.color.radio_text), true);
+        title = text(24, getColor(R.color.radio_text), true);
         title.setText(R.string.app_name);
+        title.setMaxLines(1);
+        title.setEllipsize(TextUtils.TruncateAt.END);
         titleRow.addView(title, new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
 
         View settings = iconButton(SETTINGS, getColor(R.color.radio_text), R.string.settings, () -> {
@@ -243,7 +267,13 @@ public final class RadioActivity extends Activity {
         settings.setBackground(actionBackground(getColor(R.color.radio_surface), 15, themeColor(R.attr.radio_edge_role)));
         LinearLayout.LayoutParams settingsParams = size(52, 52);
         settingsParams.leftMargin = dp(8);
-        if (!wideHeader) titleRow.addView(settings, settingsParams);
+        View searchButton = searchBox();
+        LinearLayout.LayoutParams searchParams = size(SEARCH_BUTTON_DP, 52);
+        searchParams.leftMargin = dp(8);
+        if (!wideHeader) {
+            titleRow.addView(searchButton, searchParams);
+            titleRow.addView(settings, settingsParams);
+        }
 
         LinearLayout tabGroup = horizontal();
         tabGroup.setPadding(dp(4), dp(4), dp(4), dp(4));
@@ -253,7 +283,10 @@ public final class RadioActivity extends Activity {
         header.addView(tabGroup, groupParams);
         int tabPadding = width >= 1000 ? 17 : (wideHeader ? 8 : 4);
         for (RadioTab tab : RadioTab.values()) addTab(tabGroup, tab, wideHeader, tabPadding);
-        if (wideHeader) header.addView(settings, settingsParams);
+        if (wideHeader) {
+            header.addView(searchButton, searchParams);
+            header.addView(settings, settingsParams);
+        }
 
         LinearLayout content = wide ? horizontal() : vertical();
         LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f);
@@ -412,15 +445,20 @@ public final class RadioActivity extends Activity {
         bufferPanel.setVisibility(View.GONE);
     }
 
-    private View catalogPanel() {
-        LinearLayout catalog = vertical();
+    /**
+     * The search: a button like the settings button that grows to the left into the search field. The field closes
+     * again on Back, on its clear button and when it loses focus while empty.
+     */
+    private View searchBox() {
+        searchBox = new FrameLayout(this);
+        searchBox.setBackground(actionBackground(getColor(R.color.radio_surface), 15, themeColor(R.attr.radio_edge_role)));
+        buttonLike(searchBox, getString(R.string.station_search), () -> {
+            if (!searchExpanded) expandSearch();
+            else showKeyboard();
+        });
+        searchBox.addView(new RadioGlyph(this, SEARCH, getColor(R.color.radio_text), 25),
+                new FrameLayout.LayoutParams(dp(SEARCH_BUTTON_DP), MATCH_PARENT, Gravity.START | Gravity.CENTER_VERTICAL));
 
-        LinearLayout searchBar = horizontal();
-        searchBar.setGravity(Gravity.CENTER_VERTICAL);
-        searchBar.setBackground(shape(getColor(R.color.radio_surface), 15, themeColor(R.attr.radio_edge_role)));
-        searchBar.setPadding(dp(5), 0, dp(3), 0);
-        catalog.addView(searchBar, size(MATCH_PARENT, 54));
-        searchBar.addView(new RadioGlyph(this, SEARCH, getColor(R.color.radio_muted), 24), size(44, MATCH_PARENT));
         search = new EditText(this);
         search.setSingleLine();
         search.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
@@ -429,17 +467,19 @@ public final class RadioActivity extends Activity {
         search.setTextColor(getColor(R.color.radio_text));
         search.setHintTextColor(getColor(R.color.radio_muted));
         search.setTextSize(17);
-        search.setPadding(dp(4), 0, 0, 0);
+        search.setPadding(dp(5), 0, 0, 0);
         search.setBackgroundColor(Color.TRANSPARENT);
-        searchBar.addView(search, new LinearLayout.LayoutParams(0, MATCH_PARENT, 1f));
-        searchBar.setOnClickListener(v -> {
-            search.requestFocus();
-            getSystemService(InputMethodManager.class).showSoftInput(search, InputMethodManager.SHOW_IMPLICIT);
-        });
+        FrameLayout.LayoutParams fieldParams = new FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT);
+        fieldParams.leftMargin = dp(SEARCH_BUTTON_DP - 4);
+        fieldParams.rightMargin = dp(50);
+        searchBox.addView(search, fieldParams);
         search.setOnEditorActionListener((view, action, event) -> {
             if (action != EditorInfo.IME_ACTION_SEARCH) return false;
             hideKeyboard();
             return true;
+        });
+        search.setOnFocusChangeListener((view, focused) -> {
+            if (!focused && search.length() == 0) collapseSearch(false);
         });
         search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence text, int start, int before, int count) {}
@@ -448,9 +488,107 @@ public final class RadioActivity extends Activity {
             }
             @Override public void afterTextChanged(Editable edit) {}
         });
-        clear = iconButton(CLEAR, getColor(R.color.radio_muted), R.string.clear_search, () -> search.setText(""));
+        clear = iconButton(CLEAR, getColor(R.color.radio_muted), R.string.clear_search, () -> collapseSearch(true));
         clear.setBackground(actionBackground(getColor(R.color.radio_surface), 13, Color.TRANSPARENT));
-        searchBar.addView(clear, size(48, 48));
+        FrameLayout.LayoutParams clearParams = new FrameLayout.LayoutParams(dp(48), dp(48),
+                Gravity.END | Gravity.CENTER_VERTICAL);
+        clearParams.rightMargin = dp(2);
+        searchBox.addView(clear, clearParams);
+        showSearch(0f);
+        return searchBox;
+    }
+
+    private void expandSearch() {
+        searchExpanded = true;
+        searchWidth = expandedSearchWidth();
+        // The field takes focus and opens the keyboard at once, while it still grows from the button.
+        sizeField();
+        search.setVisibility(View.VISIBLE);
+        moveSearch(1f, true);
+        showKeyboard();
+    }
+
+    /**
+     * Gives the field its open width from the start; the growing button clips it. A field of no width could not take
+     * focus.
+     */
+    private void sizeField() {
+        ViewGroup.LayoutParams params = search.getLayoutParams();
+        params.width = Math.max(1, searchWidth - dp(SEARCH_BUTTON_DP - 4) - dp(50));
+        search.setLayoutParams(params);
+    }
+
+    /** Closes the search field, also clearing the search when {@code clearQuery}. */
+    private void collapseSearch(boolean clearQuery) {
+        if (clearQuery && search.length() > 0) search.setText("");
+        if (!searchExpanded) return;
+        searchExpanded = false;
+        hideKeyboard();
+        moveSearch(0f, true);
+    }
+
+    /** As wide as the header allows without hiding the title, between 200 and 360 dp. */
+    private int expandedSearchWidth() {
+        int titleText = (int) Math.ceil(title.getPaint().measureText(title.getText().toString()));
+        int room = searchBox.getWidth() + title.getWidth() - titleText - dp(16);
+        return Math.max(dp(200), Math.min(dp(360), room));
+    }
+
+    /**
+     * Grows the button into the field ({@code target} 1) or back ({@code target} 0) over {@link #SEARCH_MOTION_MS},
+     * decelerating as it opens and accelerating as it closes, so closing plays opening backwards.
+     */
+    private void moveSearch(float target, boolean animate) {
+        if (searchMotion != null) searchMotion.cancel();
+        searchMotion = null;
+        if (!animate || !ValueAnimator.areAnimatorsEnabled() || searchOpen == target) {
+            showSearch(target);
+            return;
+        }
+        ValueAnimator motion = ValueAnimator.ofFloat(searchOpen, target);
+        motion.setDuration(Math.round(SEARCH_MOTION_MS * Math.abs(target - searchOpen)));
+        motion.setInterpolator(target > searchOpen ? new DecelerateInterpolator() : new AccelerateInterpolator());
+        motion.addUpdateListener(animation -> showSearch((float) animation.getAnimatedValue()));
+        searchMotion = motion;
+        motion.start();
+    }
+
+    /** Lays the search out {@code open} of the way from the button to the field. */
+    private void showSearch(float open) {
+        searchOpen = open;
+        ViewGroup.LayoutParams params = searchBox.getLayoutParams();
+        int collapsed = dp(SEARCH_BUTTON_DP);
+        int width = Math.round(collapsed + (Math.max(searchWidth, collapsed) - collapsed) * open);
+        if (params != null && params.width != width) {
+            params.width = width;
+            searchBox.setLayoutParams(params);
+        }
+        // The text and the clear button fade in over the last 60 % of the opening.
+        float contents = Math.max(0f, Math.min(1f, (open - .4f) / .6f));
+        search.setAlpha(contents);
+        clear.setAlpha(contents);
+        // The field keeps focus and the keyboard while it opens, so it is shown from the first frame.
+        search.setVisibility(open > 0f || searchExpanded ? View.VISIBLE : View.INVISIBLE);
+        clear.setVisibility(open > 0f ? View.VISIBLE : View.GONE);
+        searchBox.setContentDescription(open > 0f || searchExpanded ? null : getString(R.string.station_search));
+    }
+
+    private void showKeyboard() {
+        search.requestFocus();
+        search.post(() -> getSystemService(InputMethodManager.class)
+                .showSoftInput(search, InputMethodManager.SHOW_IMPLICIT));
+    }
+
+    @Override public void onBackPressed() {
+        if (searchExpanded) {
+            collapseSearch(true);
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    private View catalogPanel() {
+        LinearLayout catalog = vertical();
 
         // Remembers a finger on the list, which the list must never be moved under.
         FrameLayout listFrame = new FrameLayout(this) {
@@ -465,9 +603,7 @@ public final class RadioActivity extends Activity {
                 return super.dispatchTouchEvent(event);
             }
         };
-        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f);
-        listParams.topMargin = dp(12);
-        catalog.addView(listFrame, listParams);
+        catalog.addView(listFrame, new LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f));
         stationList = new ListView(this);
         stationList.setOnScrollListener(new AbsListView.OnScrollListener() {
             @Override public void onScrollStateChanged(AbsListView view, int state) {
@@ -531,7 +667,6 @@ public final class RadioActivity extends Activity {
                 : state.tab == RadioTab.FAVORITES && state.favorites.isEmpty()
                         ? R.string.empty_favorites : R.string.no_visible_stations;
         emptyMessage.setText(emptyText);
-        clear.setVisibility(state.query.isEmpty() ? View.INVISIBLE : View.VISIBLE);
 
         boolean hasStation = state.selected != null;
         setText(stationTitle, hasStation ? state.selected.name : getString(R.string.no_visible_stations));
