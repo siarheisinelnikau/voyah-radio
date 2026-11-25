@@ -8,13 +8,14 @@ A companion app for [Open Voyah Controls](https://github.com/siarheisinelnikau/o
 - Use media buttons to change stations, keep listening in the background and see the current track when the station shares it.
 - Arrange or hide stations. Choose the graphite or amber theme and a live spectrum or waveform.
 
-![Voyah Radio station browser on a landscape Android display](docs/screenshots/radio-main.png)
-![Voyah Radio settings for language, appearance, and station visibility](docs/screenshots/settings.png)
+![Voyah Radio playing Radio 4YOU with the live spectrum](docs/screenshots/radio-playing.png)
+![Voyah Radio settings for language, appearance and favorites](docs/screenshots/settings.png)
 
-## Build
-
-Run `./gradlew :app:assembleDebug :app:testDebugUnitTest` with JDK 17 or newer and Android SDK 35. The app uses one Gradle module and one Android activity. Compose collects screen state from Kotlin ViewModels, domain code handles station selection and ordering, and the Android media service owns playback.
-
-The interface uses Compose layouts and Canvas artwork based on the original screens.
+<p>
+  <img src="docs/screenshots/radio-amber.png" width="48%" alt="Amber theme with a live waveform">
+  <img src="docs/screenshots/kazakhstan.png" width="48%" alt="Kazakhstan stations in the Kazakh interface">
+  <img src="docs/screenshots/international.png" width="48%" alt="International stations and live track metadata">
+  <img src="docs/screenshots/buffering.png" width="48%" alt="Buffering progress while connecting to a stream">
+</p>
 
 [GPLv3](LICENSE)
