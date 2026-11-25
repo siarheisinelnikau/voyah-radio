@@ -1,0 +1,12 @@
+{
+  "tag": "v0.3.9",
+  "title": "Voyah Radio 0.3.9",
+  "notes": "First GitHub release of Voyah Radio, the internet radio companion for the Voyah Free center display and Open Voyah Controls.\n\n- Browse stations from Belarus, Russia, Kazakhstan, and other countries. Search by station name or frequency, save favorites, and arrange or hide stations.\n- Resume the last station and tab when opening the app, with an option to disable automatic playback. Change stations with steering-wheel or media controls and keep listening in the background.\n- Follow the current station in the list and see track details when the station provides them. The player keeps its controls in place during station changes and long connection messages.\n- Choose graphite or amber, a live spectrum or waveform, and a skippable startup animation. The interface is available in English, Russian, and Kazakh.\n- Check for new releases and download signed updates from Settings.\n\nInstall **VoyahRadio-v0.3.9.apk** on the head unit. Requires Android 9 or later and an internet connection for streaming.",
+  "commit": "48f2728b1e8f2ea29a2d66d39831258a8c328f79",
+  "version_code": 12,
+  "assets": [
+    {
+      "name": "VoyahRadio-v0.3.9.apk"
+    }
+  ]
+}
