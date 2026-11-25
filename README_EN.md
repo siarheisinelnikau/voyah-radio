@@ -10,6 +10,8 @@ A companion app for [Open Voyah Controls](https://github.com/siarheisinelnikau/o
 - A short intro in the style of Open Voyah Controls plays each time the radio comes back on screen; a tap ends it, and Settings can turn it off.
 - Arrange or hide stations. Choose the graphite or amber theme and a live spectrum or waveform.
 
+- Check for updates in Settings and install a new signed APK from the app. The automatic startup check can be turned off.
+
 ![Voyah Radio playing Radio 4YOU with the live spectrum](docs/screenshots/radio-playing.png)
 ![Voyah Radio settings for language, appearance and favorites](docs/screenshots/settings.png)
 
@@ -18,6 +20,7 @@ A companion app for [Open Voyah Controls](https://github.com/siarheisinelnikau/o
   <img src="docs/screenshots/kazakhstan.png" width="48%" alt="Kazakhstan stations in the Kazakh interface">
   <img src="docs/screenshots/international.png" width="48%" alt="International stations and live track metadata">
   <img src="docs/screenshots/buffering.png" width="48%" alt="Buffering progress while connecting to a stream">
+  <img src="docs/screenshots/intro.png" width="48%" alt="Voyah Radio startup animation">
 </p>
 
 [GPLv3](LICENSE)

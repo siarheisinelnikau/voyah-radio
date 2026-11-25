@@ -10,6 +10,8 @@
 - При каждом возвращении на экран играет короткая заставка в стиле Open Voyah Controls; касание сразу её завершает, а в настройках её можно выключить.
 - Настраивайте порядок и видимость станций. Выбирайте графитовую или янтарную тему, спектр или звуковую волну.
 
+- Проверяйте обновления и устанавливайте подписанный APK в настройках. Автоматическую проверку при запуске можно отключить.
+
 ![Voyah Radio playing Radio 4YOU with the live spectrum](docs/screenshots/radio-playing.png)
 ![Voyah Radio settings for language, appearance and favorites](docs/screenshots/settings.png)
 
@@ -18,6 +20,7 @@
   <img src="docs/screenshots/kazakhstan.png" width="48%" alt="Kazakhstan stations in the Kazakh interface">
   <img src="docs/screenshots/international.png" width="48%" alt="International stations and live track metadata">
   <img src="docs/screenshots/buffering.png" width="48%" alt="Buffering progress while connecting to a stream">
+  <img src="docs/screenshots/intro.png" width="48%" alt="Voyah Radio startup animation">
 </p>
 
 [GPLv3](LICENSE)

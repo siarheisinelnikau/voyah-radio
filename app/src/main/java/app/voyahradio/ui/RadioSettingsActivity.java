@@ -3,6 +3,7 @@ package app.voyahradio.ui;
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -24,6 +25,7 @@ import app.voyahradio.RadioApp;
 import app.voyahradio.data.RadioPreferences;
 import app.voyahradio.domain.RadioTab;
 import app.voyahradio.domain.Station;
+import app.voyahradio.update.UpdateSettings;
 
 import java.util.Collections;
 import java.util.EnumMap;
@@ -44,6 +46,7 @@ public final class RadioSettingsActivity extends Activity {
     private final Map<String, StationControl> rows = new LinkedHashMap<>();
 
     private RadioSettingsViewModel model;
+    private UpdateSettings updateSettings;
     private ScrollView stationsScroll;
     private LinearLayout stationRows;
     private Switch hideUnavailable;
@@ -83,7 +86,14 @@ public final class RadioSettingsActivity extends Activity {
         super.onSaveInstanceState(state);
     }
 
+    @SuppressWarnings("deprecation")
+    @Override protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        updateSettings.onActivityResult(request, result);
+    }
+
     @Override protected void onDestroy() {
+        updateSettings.close();
         model.close();
         super.onDestroy();
     }
@@ -201,6 +211,17 @@ public final class RadioSettingsActivity extends Activity {
         availability.addView(checkStatus, size(MATCH_PARENT, WRAP_CONTENT));
         checkButton = button(R.string.check_availability, model::toggleCheck);
         availability.addView(checkButton, size(MATCH_PARENT, WRAP_CONTENT));
+
+        LinearLayout updates = card(controls, R.string.updates);
+        TextView version = caption(R.string.installed_version);
+        Switch startup = toggle(getString(R.string.startup_updates));
+        TextView check = button(R.string.check_updates, () -> {});
+        TextView status = caption(R.string.checking);
+        TextView install = button(R.string.download_install, () -> {});
+        for (View view : new View[] {version, startup, check, status, install}) {
+            updates.addView(view, size(MATCH_PARENT, WRAP_CONTENT));
+        }
+        updateSettings = new UpdateSettings(this, version, startup, check, status, install);
     }
 
     private LinearLayout labeledOptions(LinearLayout parent, int label, boolean inline) {

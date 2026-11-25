@@ -139,6 +139,7 @@ public final class RadioActivity extends Activity {
         displayedTheme = new RadioPreferences(this).theme();
         RadioTheme.apply(this, displayedTheme);
         super.onCreate(saved);
+        app.voyahradio.update.Updates.get(this).startup();
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
         RadioApp app = (RadioApp) getApplication();
         RadioTab tab = saved == null ? app.preferences().lastTab()

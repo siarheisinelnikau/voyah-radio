@@ -1,0 +1,16 @@
+<resources>
+    <string name="updates">Жаңартулар</string>
+    <string name="installed_version">Орнатылған нұсқа %1$s</string>
+    <string name="startup_updates">Іске қосылғанда жаңартуларды тексеру</string>
+    <string name="check_updates">Жаңартуларды тексеру</string>
+    <string name="checking">Жаңартулар тексерілуде…</string>
+    <string name="up_to_date">Соңғы нұсқа орнатылған.</string>
+    <string name="update_available">%1$s нұсқасы қолжетімді.</string>
+    <string name="check_failed">Жаңартуларды тексеру мүмкін болмады. Интернетке қосылымды тексеріп, қайталап көріңіз.</string>
+    <string name="download_install">Жүктеп алу және орнату</string>
+    <string name="install_update">Жаңартуды орнату</string>
+    <string name="downloading">Жүктелуде… %1$d%%</string>
+    <string name="ready_to_install">%1$s нұсқасы орнатуға дайын.</string>
+    <string name="download_failed">Жаңартуды жүктеу немесе тексеру мүмкін болмады. Қайталап көріңіз.</string>
+    <string name="install_failed">Android жаңартуды орната алмады.</string>
+</resources>
