@@ -331,8 +331,15 @@ public final class RadioActivity extends Activity {
         playbackStatus = text(14, themeColor(R.attr.radio_accent_role), true);
         playbackStatus.setGravity(Gravity.CENTER);
         playbackStatus.setPadding(dp(12), dp(6), dp(12), dp(6));
+        playbackStatus.setMaxLines(2);
+        playbackStatus.setEllipsize(TextUtils.TruncateAt.END);
         playbackStatus.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        panel.addView(playbackStatus, wrap(WRAP_CONTENT));
+        // An error message takes two lines; the status keeps room for them so the panel does not move.
+        LinearLayout statusSlot = vertical();
+        statusSlot.setGravity(Gravity.CENTER);
+        statusSlot.setMinimumHeight(playbackStatus.getLineHeight() * 2 + dp(12));
+        statusSlot.addView(playbackStatus, wrap(WRAP_CONTENT));
+        panel.addView(statusSlot, wrap(MATCH_PARENT));
 
         if (!compact) {
             View upperSpace = new View(this);
@@ -342,10 +349,12 @@ public final class RadioActivity extends Activity {
 
         // The panel centres its contents, so every text below keeps one height whatever it shows: otherwise a long
         // station name or a track that comes and goes would move the visualization and the buttons on each change.
+        // A compact panel has no room for second lines, so its names end with an ellipsis instead.
+        int nameLines = compact ? 1 : 2;
         stationTitle = text(compact ? 27 : 36, getColor(R.color.radio_text), true);
         stationTitle.setGravity(Gravity.CENTER);
-        stationTitle.setMinLines(2);
-        stationTitle.setMaxLines(2);
+        stationTitle.setMinLines(nameLines);
+        stationTitle.setMaxLines(nameLines);
         stationTitle.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams titleParams = wrap(MATCH_PARENT);
         titleParams.topMargin = dp(compact ? 8 : 21);
@@ -358,7 +367,7 @@ public final class RadioActivity extends Activity {
         labelParams.topMargin = dp(4);
         panel.addView(stationLabel, labelParams);
 
-        // Room for a two-line track title and its artist, held while a station has no track yet or none at all.
+        // Room for the track title and its artist, held while a station has no track yet or none at all.
         LinearLayout trackBlock = vertical();
         trackBlock.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams trackParams = wrap(MATCH_PARENT);
@@ -366,7 +375,7 @@ public final class RadioActivity extends Activity {
         panel.addView(trackBlock, trackParams);
         trackTitle = text(compact ? 16 : 20, themeColor(R.attr.radio_accent_role), true);
         trackTitle.setGravity(Gravity.CENTER);
-        trackTitle.setMaxLines(2);
+        trackTitle.setMaxLines(nameLines);
         trackTitle.setEllipsize(TextUtils.TruncateAt.END);
         trackBlock.addView(trackTitle, wrap(MATCH_PARENT));
         trackArtist = text(compact ? 14 : 16, getColor(R.color.radio_muted), false);
@@ -376,7 +385,7 @@ public final class RadioActivity extends Activity {
         LinearLayout.LayoutParams artistParams = wrap(MATCH_PARENT);
         artistParams.topMargin = dp(4);
         trackBlock.addView(trackArtist, artistParams);
-        trackBlock.setMinimumHeight(trackTitle.getLineHeight() * 2 + dp(4) + trackArtist.getLineHeight());
+        trackBlock.setMinimumHeight(trackTitle.getLineHeight() * nameLines + dp(4) + trackArtist.getLineHeight());
 
         if (!compact) {
             View lowerSpace = new View(this);
