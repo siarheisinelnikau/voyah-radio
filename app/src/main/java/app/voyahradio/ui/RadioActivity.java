@@ -20,6 +20,7 @@ import android.text.TextWatcher;
 import android.text.InputType;
 import android.text.format.Formatter;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -48,6 +49,7 @@ import app.voyahradio.playback.RadioService;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -93,6 +95,13 @@ public final class RadioActivity extends Activity {
     private RadioTab displayedTab;
     private Set<RadioTab> displayedHiddenTabs = Collections.emptySet();
     private String displayedQuery;
+    private String displayedStation;
+    private boolean touchingList;
+    private int listScrollState = AbsListView.OnScrollListener.SCROLL_STATE_IDLE;
+    /** The list scrolls because it follows the station, not because of the user. */
+    private boolean ownScroll;
+    private int pendingRow = -1;
+    private boolean pendingSmooth;
 
     private final ServiceConnection connection = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name, IBinder binder) {
@@ -443,11 +452,32 @@ public final class RadioActivity extends Activity {
         clear.setBackground(actionBackground(getColor(R.color.radio_surface), 13, Color.TRANSPARENT));
         searchBar.addView(clear, size(48, 48));
 
-        FrameLayout listFrame = new FrameLayout(this);
+        // Remembers a finger on the list, which the list must never be moved under.
+        FrameLayout listFrame = new FrameLayout(this) {
+            @Override public boolean dispatchTouchEvent(MotionEvent event) {
+                int action = event.getActionMasked();
+                if (action == MotionEvent.ACTION_DOWN) {
+                    touchingList = true;
+                    ownScroll = false;
+                } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                    touchingList = false;
+                }
+                return super.dispatchTouchEvent(event);
+            }
+        };
         LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f);
         listParams.topMargin = dp(12);
         catalog.addView(listFrame, listParams);
         stationList = new ListView(this);
+        stationList.setOnScrollListener(new AbsListView.OnScrollListener() {
+            @Override public void onScrollStateChanged(AbsListView view, int state) {
+                if (state != SCROLL_STATE_FLING) ownScroll = false;
+                listScrollState = state;
+            }
+
+            @Override public void onScroll(AbsListView view, int first, int visible, int total) {}
+        });
+        stationList.getViewTreeObserver().addOnGlobalLayoutListener(this::revealPendingStation);
         stationList.setItemsCanFocus(true);
         stationList.setDivider(null);
         stationList.setSelector(new ColorDrawable(Color.TRANSPARENT));
@@ -477,13 +507,23 @@ public final class RadioActivity extends Activity {
             displayedHiddenTabs = state.hiddenTabs;
         }
 
-        boolean newFilter = displayedTab != state.tab || !state.query.equals(displayedQuery);
+        boolean opened = displayedTab == null;
+        String station = state.selected == null ? null : state.selected.id;
         stationAdapter.update(state);
-        // The radio opens on the row of the last station with the row above it in view; a new tab or search starts
-        // at the top.
-        if (newFilter) stationList.setSelection(displayedTab == null ? Math.max(0, rowOf(state) - 1) : 0);
+        int row = StationFollow.rowOf(state.stations, state.selected, listColumns);
+        switch (StationFollow.move(opened, displayedTab != state.tab, !state.query.equals(displayedQuery),
+                !Objects.equals(station, displayedStation), row)) {
+            case TOP -> stationList.setSelection(0);
+            case SHOW_FROM_TOP -> {
+                stationList.setSelection(0);
+                followStation(row, false);
+            }
+            case FOLLOW -> followStation(row, true);
+            case STAY -> { }
+        }
         displayedTab = state.tab;
         displayedQuery = state.query;
+        displayedStation = station;
 
         boolean empty = state.stations.isEmpty();
         emptyMessage.setVisibility(empty ? View.VISIBLE : View.GONE);
@@ -574,9 +614,33 @@ public final class RadioActivity extends Activity {
         bufferPanel.postDelayed(bufferTick, BUFFER_REFRESH_MS);
     }
 
-    private int rowOf(RadioViewModel.State state) {
-        int index = state.selected == null ? -1 : state.stations.indexOf(state.selected);
-        return index < 0 ? 0 : index / listColumns;
+    /**
+     * Brings the station's row into view with the row above it, once the list has laid out its new rows; a row that is
+     * already fully visible stays where it is. {@code smooth} scrolls there, and only while nobody holds or flings
+     * the list.
+     */
+    private void followStation(int row, boolean smooth) {
+        pendingRow = row;
+        pendingSmooth = smooth;
+        if (stationList.isLaidOut() && !stationList.isLayoutRequested()) revealPendingStation();
+    }
+
+    private void revealPendingStation() {
+        int row = pendingRow;
+        if (row < 0) return;
+        pendingRow = -1;
+        boolean scrolling = listScrollState != AbsListView.OnScrollListener.SCROLL_STATE_IDLE;
+        if (pendingSmooth && !StationFollow.mayMove(touchingList, scrolling, ownScroll)) return;
+        View line = stationList.getChildAt(row - stationList.getFirstVisiblePosition());
+        if (line != null && StationFollow.fullyVisible(line.getTop(), line.getBottom() - line.getPaddingBottom(),
+                stationList.getHeight())) return;
+        int first = StationFollow.firstRow(row);
+        if (pendingSmooth) {
+            ownScroll = true;
+            stationList.smoothScrollToPositionFromTop(first, 0);
+        } else {
+            stationList.setSelection(first);
+        }
     }
 
     private final class StationAdapter extends BaseAdapter {
