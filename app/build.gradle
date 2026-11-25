@@ -1,8 +1,18 @@
 plugins {
     id 'com.android.application' version '8.9.2'
+    id 'org.jetbrains.kotlin.android' version '2.1.21'
+    id 'org.jetbrains.kotlin.plugin.compose' version '2.1.21'
 }
 
+kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
+
 dependencies {
+    implementation platform('androidx.compose:compose-bom:2025.05.01')
+    implementation 'androidx.activity:activity-compose:1.10.1'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.9.0'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
     implementation 'androidx.media3:media3-exoplayer:1.6.1'
     implementation 'androidx.media3:media3-exoplayer-hls:1.6.1'
     testImplementation 'junit:junit:4.13.2'
@@ -11,6 +21,7 @@ dependencies {
 android {
     namespace 'app.voyahradio'
     compileSdk 35
+    buildFeatures { compose = true }
 
     defaultConfig {
         applicationId 'app.voyahradio'
