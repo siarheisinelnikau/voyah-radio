@@ -340,8 +340,11 @@ public final class RadioActivity extends Activity {
         }
         addVisualStage(panel, compact);
 
+        // The panel centres its contents, so every text below keeps one height whatever it shows: otherwise a long
+        // station name or a track that comes and goes would move the visualization and the buttons on each change.
         stationTitle = text(compact ? 27 : 36, getColor(R.color.radio_text), true);
         stationTitle.setGravity(Gravity.CENTER);
+        stationTitle.setMinLines(2);
         stationTitle.setMaxLines(2);
         stationTitle.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams titleParams = wrap(MATCH_PARENT);
@@ -349,24 +352,31 @@ public final class RadioActivity extends Activity {
         panel.addView(stationTitle, titleParams);
         stationLabel = text(compact ? 14 : 17, getColor(R.color.radio_muted), false);
         stationLabel.setGravity(Gravity.CENTER);
+        stationLabel.setMaxLines(1);
+        stationLabel.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams labelParams = wrap(MATCH_PARENT);
         labelParams.topMargin = dp(4);
         panel.addView(stationLabel, labelParams);
 
+        // Room for a two-line track title and its artist, held while a station has no track yet or none at all.
+        LinearLayout trackBlock = vertical();
+        trackBlock.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams trackParams = wrap(MATCH_PARENT);
+        trackParams.topMargin = dp(compact ? 8 : 16);
+        panel.addView(trackBlock, trackParams);
         trackTitle = text(compact ? 16 : 20, themeColor(R.attr.radio_accent_role), true);
         trackTitle.setGravity(Gravity.CENTER);
         trackTitle.setMaxLines(2);
         trackTitle.setEllipsize(TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams trackParams = wrap(MATCH_PARENT);
-        trackParams.topMargin = dp(compact ? 8 : 16);
-        panel.addView(trackTitle, trackParams);
+        trackBlock.addView(trackTitle, wrap(MATCH_PARENT));
         trackArtist = text(compact ? 14 : 16, getColor(R.color.radio_muted), false);
         trackArtist.setGravity(Gravity.CENTER);
         trackArtist.setMaxLines(1);
         trackArtist.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams artistParams = wrap(MATCH_PARENT);
         artistParams.topMargin = dp(4);
-        panel.addView(trackArtist, artistParams);
+        trackBlock.addView(trackArtist, artistParams);
+        trackBlock.setMinimumHeight(trackTitle.getLineHeight() * 2 + dp(4) + trackArtist.getLineHeight());
 
         if (!compact) {
             View lowerSpace = new View(this);
@@ -721,7 +731,10 @@ public final class RadioActivity extends Activity {
             case CONNECTING, BUFFERING, RECONNECTING -> true;
             default -> false;
         };
-        visualStage.setVisibility(!compactStage || fetching || drawingSound ? View.VISIBLE : View.GONE);
+        // A compact player keeps its stage while a station plays, also between stations and without a visualization,
+        // so that switching stations does not move the panel; it folds the stage only when playback stops.
+        boolean playing = uiStarted && playback.active();
+        visualStage.setVisibility(!compactStage || fetching || drawingSound || playing ? View.VISIBLE : View.GONE);
         signal.setVisibility(!compactStage && !fetching && !drawingSound ? View.VISIBLE : View.GONE);
         boolean bufferWasVisible = bufferPanel.getVisibility() == View.VISIBLE;
         bufferPanel.setVisibility(fetching ? View.VISIBLE : View.GONE);
