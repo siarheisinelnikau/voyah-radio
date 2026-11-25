@@ -4,8 +4,10 @@
 
 A companion app for [Open Voyah Controls](https://github.com/siarheisinelnikau/open-voyah-controls). Internet radio for the Voyah Free center display on Android 9 and later.
 
-- Listen to stations from Belarus, Russia, Kazakhstan and around the world. Search by name or frequency and save favorites.
-- Use media buttons to change stations, keep listening in the background and see the current track when the station shares it.
+- Listen to stations from Belarus, Russia, Kazakhstan and around the world. Search by name or frequency and save favorites. The search button in the header opens into the search field, and the list always scrolls to the station that plays.
+- The radio opens on the last tab and starts the last station, as a car radio does. Settings can turn that off.
+- Use the steering wheel or media buttons to change stations, keep listening in the background and see the current track when the station shares it. With Open Voyah Controls the radio appears in the home screen media card.
+- A short intro in the style of Open Voyah Controls plays each time the radio comes back on screen; a tap ends it, and Settings can turn it off.
 - Arrange or hide stations. Choose the graphite or amber theme and a live spectrum or waveform.
 
 ![Voyah Radio playing Radio 4YOU with the live spectrum](docs/screenshots/radio-playing.png)
