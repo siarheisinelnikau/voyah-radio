@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Voyah Radio</string>
+    <string name="app_name" translatable="false">Voyah Radio</string>
     <string name="belarus">Belarus</string>
     <string name="international">International</string>
     <string name="favorites">Favorites</string>

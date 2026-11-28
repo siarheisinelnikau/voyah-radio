@@ -61,7 +61,8 @@ public final class RadioSettingsActivity extends Activity {
     private boolean animate;
 
     @Override protected void attachBaseContext(Context base) {
-        super.attachBaseContext(RadioLocale.apply(base, new RadioPreferences(base)));
+        Context localized = RadioLocale.apply(base, new RadioPreferences(base));
+        super.attachBaseContext(ScreenScale.apply(localized));
     }
 
     @Override protected void onCreate(Bundle saved) {

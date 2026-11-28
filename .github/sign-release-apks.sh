@@ -23,6 +23,7 @@ unset ANDROID_KEYSTORE_BASE64
 while IFS= read -r name; do
   case "$GH_REPO:$name" in
     "siarheisinelnikau/voyah-radio:VoyahRadio-$tag.apk") package=app.voyahradio ;;
+    "siarheisinelnikau/voyah-radio:MazdaEZ6Radio-$tag.apk") package=app.mazdaez6radio ;;
     "siarheisinelnikau/voyah-music:VoyahMusic-$tag.apk") package=app.voyahmusic.player ;;
     "siarheisinelnikau/voyah-music:VoyahMusicTransfer-$tag.apk") package=app.voyahmusic.transfer ;;
     "siarheisinelnikau/youtube-web:YouTubeWeb-$tag.apk") package=org.openvoyah.youtube ;;

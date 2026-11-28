@@ -12,12 +12,31 @@ android {
     namespace 'app.voyahradio'
     compileSdk 35
 
+    buildFeatures {
+        buildConfig true
+    }
+
+    flavorDimensions 'vehicle'
+    productFlavors {
+        voyah {
+            dimension 'vehicle'
+            buildConfigField 'boolean', 'MAZDA_EZ6', 'false'
+        }
+        mazdaEz6 {
+            dimension 'vehicle'
+            applicationId 'app.mazdaez6radio'
+            buildConfigField 'boolean', 'MAZDA_EZ6', 'true'
+            buildConfigField 'String', 'RELEASE_ASSET', '"MazdaEZ6Radio"'
+        }
+    }
+
     defaultConfig {
         applicationId 'app.voyahradio'
+        buildConfigField 'String', 'RELEASE_ASSET', '"VoyahRadio"'
         minSdk 28
         targetSdk 34
-        versionCode 12
-        versionName '0.3.9'
+        versionCode 13
+        versionName '0.3.10'
     }
 
     compileOptions {

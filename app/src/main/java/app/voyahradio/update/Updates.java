@@ -7,6 +7,7 @@ import android.content.pm.Signature;
 import android.os.Handler;
 import android.os.Looper;
 
+import app.voyahradio.BuildConfig;
 import app.voyahradio.R;
 import android.widget.Toast;
 
@@ -59,7 +60,7 @@ public final class Updates {
     private boolean startupDone;
 
     public static Updates get(Context context) {
-        if (instance == null) instance = new Updates(context.getApplicationContext(), "VoyahRadio");
+        if (instance == null) instance = new Updates(context.getApplicationContext(), BuildConfig.RELEASE_ASSET);
         return instance;
     }
 

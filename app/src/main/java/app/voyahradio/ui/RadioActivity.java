@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
@@ -33,6 +34,7 @@ import android.widget.EditText;
 import android.widget.AbsListView;
 import android.widget.BaseAdapter;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
@@ -73,7 +75,7 @@ public final class RadioActivity extends Activity {
     private RadioService service;
     private boolean bound;
     private boolean uiStarted;
-    private boolean compactStage;
+    private boolean collapsibleStage;
     private String displayedTheme;
     private int listColumns;
     private TextView stationTitle;
@@ -102,7 +104,8 @@ public final class RadioActivity extends Activity {
     private Set<RadioTab> displayedHiddenTabs = Collections.emptySet();
     private String displayedQuery;
     private String displayedStation;
-    private TextView title;
+    private View searchSpace;
+    private HorizontalScrollView tabScroll;
     private FrameLayout searchBox;
     private ValueAnimator searchMotion;
     /** How far the search has opened, 0 for the button and 1 for the field. */
@@ -132,7 +135,8 @@ public final class RadioActivity extends Activity {
     };
 
     @Override protected void attachBaseContext(Context base) {
-        super.attachBaseContext(RadioLocale.apply(base, new RadioPreferences(base)));
+        Context localized = RadioLocale.apply(base, new RadioPreferences(base));
+        super.attachBaseContext(ScreenScale.apply(localized));
     }
 
     @Override protected void onCreate(Bundle saved) {
@@ -234,8 +238,7 @@ public final class RadioActivity extends Activity {
     private void buildLayout() {
         int width = getResources().getConfiguration().screenWidthDp;
         int height = getResources().getConfiguration().screenHeightDp;
-        boolean wide = width >= 720;
-        boolean wideHeader = width >= 900;
+        boolean wide = width >= 720 && width * 2 >= height * 3;
         listColumns = width >= 1000 ? 2 : 1;
 
         LinearLayout page = vertical();
@@ -246,20 +249,55 @@ public final class RadioActivity extends Activity {
         setContentView(page);
         page.requestFocus();
 
-        LinearLayout header = wideHeader ? horizontal() : vertical();
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        page.addView(header, wrap(MATCH_PARENT));
-        LinearLayout titleRow = header;
-        if (!wideHeader) {
-            titleRow = horizontal();
-            titleRow.setGravity(Gravity.CENTER_VERTICAL);
-            header.addView(titleRow, wrap(MATCH_PARENT));
+        LinearLayout content = wide ? horizontal() : vertical();
+        page.addView(content, new LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f));
+
+        boolean compactPlayer = !wide || height < 510;
+        int playerWidth = Math.min(440, Math.max(292, width * 34 / 100));
+        LinearLayout.LayoutParams playerParams = wide ? size(playerWidth, MATCH_PARENT) : wrap(MATCH_PARENT);
+        content.addView(playerPanel(compactPlayer, wide), playerParams);
+
+        int catalogWidth = width - 2 * outer - (wide ? playerWidth + 20 : 0);
+        LinearLayout.LayoutParams catalogParams = wide
+                ? new LinearLayout.LayoutParams(0, MATCH_PARENT, 1f)
+                : new LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f);
+        if (wide) catalogParams.leftMargin = dp(20);
+        else catalogParams.topMargin = dp(12);
+        content.addView(catalogPanel(catalogWidth, !wide), catalogParams);
+    }
+
+    private void addCatalogHeader(LinearLayout catalog, int catalogWidth, boolean stacked) {
+        boolean singleRow = catalogWidth >= 700;
+        LinearLayout actions = horizontal();
+        actions.setGravity(Gravity.CENTER_VERTICAL);
+        catalog.addView(actions, wrap(MATCH_PARENT));
+
+        LinearLayout tabGroup = horizontal();
+        tabGroup.setPadding(dp(4), dp(4), dp(4), dp(4));
+        tabGroup.setBackground(shape(getColor(R.color.radio_surface), 18, themeColor(R.attr.radio_edge_role)));
+        if (stacked) {
+            tabScroll = new HorizontalScrollView(this);
+            tabScroll.setHorizontalScrollBarEnabled(false);
+            tabScroll.addView(tabGroup, new FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+            actions.addView(tabScroll, new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
+            searchSpace = tabScroll;
+        } else if (singleRow) {
+            actions.addView(tabGroup, wrap(WRAP_CONTENT));
+        } else {
+            LinearLayout.LayoutParams tabParams = wrap(MATCH_PARENT);
+            tabParams.topMargin = dp(8);
+            catalog.addView(tabGroup, tabParams);
         }
-        title = text(24, getColor(R.color.radio_text), true);
-        title.setText(R.string.app_name);
-        title.setMaxLines(1);
-        title.setEllipsize(TextUtils.TruncateAt.END);
-        titleRow.addView(title, new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f));
+        int tabPadding = catalogWidth >= 800 ? 17 : 6;
+        for (RadioTab tab : RadioTab.values()) addTab(tabGroup, tab, singleRow || stacked, tabPadding);
+
+        if (!stacked) {
+            searchSpace = new View(this);
+            actions.addView(searchSpace, new LinearLayout.LayoutParams(0, 1, 1f));
+        }
+        LinearLayout.LayoutParams searchParams = size(SEARCH_BUTTON_DP, SEARCH_BUTTON_DP);
+        searchParams.leftMargin = dp(8);
+        actions.addView(searchBox(), searchParams);
 
         View settings = iconButton(SETTINGS, getColor(R.color.radio_text), R.string.settings, () -> {
             hideKeyboard();
@@ -268,119 +306,90 @@ public final class RadioActivity extends Activity {
         settings.setBackground(actionBackground(getColor(R.color.radio_surface), 15, themeColor(R.attr.radio_edge_role)));
         LinearLayout.LayoutParams settingsParams = size(52, 52);
         settingsParams.leftMargin = dp(8);
-        View searchButton = searchBox();
-        LinearLayout.LayoutParams searchParams = size(SEARCH_BUTTON_DP, 52);
-        searchParams.leftMargin = dp(8);
-        if (!wideHeader) {
-            titleRow.addView(searchButton, searchParams);
-            titleRow.addView(settings, settingsParams);
-        }
-
-        LinearLayout tabGroup = horizontal();
-        tabGroup.setPadding(dp(4), dp(4), dp(4), dp(4));
-        tabGroup.setBackground(shape(getColor(R.color.radio_surface), 18, themeColor(R.attr.radio_edge_role)));
-        LinearLayout.LayoutParams groupParams = wrap(wideHeader ? WRAP_CONTENT : MATCH_PARENT);
-        if (!wideHeader) groupParams.topMargin = dp(12);
-        header.addView(tabGroup, groupParams);
-        int tabPadding = width >= 1000 ? 17 : (wideHeader ? 8 : 4);
-        for (RadioTab tab : RadioTab.values()) addTab(tabGroup, tab, wideHeader, tabPadding);
-        if (wideHeader) {
-            header.addView(searchButton, searchParams);
-            header.addView(settings, settingsParams);
-        }
-
-        LinearLayout content = wide ? horizontal() : vertical();
-        LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f);
-        contentParams.topMargin = dp(wide ? 18 : 12);
-        page.addView(content, contentParams);
-
-        boolean compactPlayer = !wide || height < 510;
-        View player = playerPanel(compactPlayer);
-        int playerWidth = Math.min(440, Math.max(292, width * 34 / 100));
-        LinearLayout.LayoutParams playerParams = wide
-                ? new LinearLayout.LayoutParams(dp(playerWidth), MATCH_PARENT) : wrap(MATCH_PARENT);
-        content.addView(player, playerParams);
-        LinearLayout.LayoutParams catalogParams = wide
-                ? new LinearLayout.LayoutParams(0, MATCH_PARENT, 1f)
-                : new LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f);
-        if (wide) catalogParams.leftMargin = dp(20);
-        else catalogParams.topMargin = dp(12);
-        content.addView(catalogPanel(), catalogParams);
+        actions.addView(settings, settingsParams);
     }
 
-    private void addTab(LinearLayout group, RadioTab tab, boolean wide, int padding) {
+    private void addTab(LinearLayout group, RadioTab tab, boolean singleRow, int padding) {
         TextView button = text(16, getColor(R.color.radio_text), true);
         button.setText(RadioLabels.tab(tab));
         button.setGravity(Gravity.CENTER);
         button.setMinHeight(dp(48));
         button.setPadding(dp(padding), 0, dp(padding), 0);
         buttonLike(button, null, () -> model.chooseTab(tab));
-        LinearLayout.LayoutParams params = wide ? wrap(WRAP_CONTENT)
+        LinearLayout.LayoutParams params = singleRow ? wrap(WRAP_CONTENT)
                 : new LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f);
         group.addView(button, params);
         tabs.put(tab, button);
     }
 
-    private View playerPanel(boolean compact) {
+    private View playerPanel(boolean compact, boolean wide) {
         LinearLayout panel = vertical();
-        panel.setGravity(Gravity.CENTER);
+        panel.setGravity(Gravity.CENTER_HORIZONTAL);
         panel.setPadding(dp(compact ? 14 : 25), dp(compact ? 13 : 26),
                 dp(compact ? 14 : 25), dp(compact ? 14 : 27));
         panel.setBackground(shape(getColor(R.color.radio_panel), compact ? 18 : 24,
                 themeColor(R.attr.radio_selected_edge_role)));
 
-        playbackStatus = text(14, themeColor(R.attr.radio_accent_role), true);
+        LinearLayout metadata = panel;
+        LinearLayout signalPanel = panel;
+        if (!wide) {
+            LinearLayout summary = horizontal();
+            summary.setGravity(Gravity.CENTER_VERTICAL);
+            panel.addView(summary, wrap(MATCH_PARENT));
+            metadata = vertical();
+            summary.addView(metadata, new LinearLayout.LayoutParams(0, WRAP_CONTENT, 3f));
+            signalPanel = vertical();
+            LinearLayout.LayoutParams signalParams = new LinearLayout.LayoutParams(0, WRAP_CONTENT, 2f);
+            signalParams.leftMargin = dp(8);
+            summary.addView(signalPanel, signalParams);
+        }
+
+        playbackStatus = text(wide ? 14 : 12, themeColor(R.attr.radio_accent_role), true);
         playbackStatus.setGravity(Gravity.CENTER);
-        playbackStatus.setPadding(dp(12), dp(6), dp(12), dp(6));
+        playbackStatus.setPadding(dp(wide ? 12 : 6), dp(6), dp(wide ? 12 : 6), dp(6));
         playbackStatus.setMaxLines(2);
         playbackStatus.setEllipsize(TextUtils.TruncateAt.END);
         playbackStatus.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         // An error message takes two lines; the status keeps room for them so the panel does not move.
         LinearLayout statusSlot = vertical();
-        statusSlot.setGravity(Gravity.CENTER);
-        statusSlot.setMinimumHeight(playbackStatus.getLineHeight() * 2 + dp(12));
+        statusSlot.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        if (wide) statusSlot.setMinimumHeight(playbackStatus.getLineHeight() * 2 + dp(12));
         statusSlot.addView(playbackStatus, wrap(WRAP_CONTENT));
-        panel.addView(statusSlot, wrap(MATCH_PARENT));
+        signalPanel.addView(statusSlot, wrap(MATCH_PARENT));
 
-        if (!compact) {
-            View upperSpace = new View(this);
-            panel.addView(upperSpace, new LinearLayout.LayoutParams(1, 0, 1f));
-        }
-        addVisualStage(panel, compact);
+        addVisualStage(signalPanel, compact, wide);
 
-        // The panel centres its contents, so every text below keeps one height whatever it shows: otherwise a long
-        // station name or a track that comes and goes would move the visualization and the buttons on each change.
-        // A compact panel has no room for second lines, so its names end with an ellipsis instead.
+        // Reserve room for metadata so changes to the station or track keep the visualization and controls in place.
         int nameLines = compact ? 1 : 2;
-        stationTitle = text(compact ? 27 : 36, getColor(R.color.radio_text), true);
-        stationTitle.setGravity(Gravity.CENTER);
+        stationTitle = text(!wide ? 22 : compact ? 27 : 36, getColor(R.color.radio_text), true);
+        stationTitle.setGravity(wide ? Gravity.CENTER : Gravity.START);
         stationTitle.setMinLines(nameLines);
         stationTitle.setMaxLines(nameLines);
         stationTitle.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams titleParams = wrap(MATCH_PARENT);
-        titleParams.topMargin = dp(compact ? 8 : 21);
-        panel.addView(stationTitle, titleParams);
+        titleParams.topMargin = dp(!wide ? 0 : compact ? 8 : 21);
+        metadata.addView(stationTitle, titleParams);
         stationLabel = text(compact ? 14 : 17, getColor(R.color.radio_muted), false);
-        stationLabel.setGravity(Gravity.CENTER);
+        stationLabel.setGravity(wide ? Gravity.CENTER : Gravity.START);
         stationLabel.setMaxLines(1);
         stationLabel.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams labelParams = wrap(MATCH_PARENT);
         labelParams.topMargin = dp(4);
-        panel.addView(stationLabel, labelParams);
+        metadata.addView(stationLabel, labelParams);
 
         // Room for the track title and its artist, held while a station has no track yet or none at all.
         LinearLayout trackBlock = vertical();
-        trackBlock.setGravity(Gravity.CENTER);
+        trackBlock.setGravity(wide ? Gravity.CENTER : Gravity.START);
         LinearLayout.LayoutParams trackParams = wrap(MATCH_PARENT);
-        trackParams.topMargin = dp(compact ? 8 : 16);
-        panel.addView(trackBlock, trackParams);
+        trackParams.topMargin = dp(!wide ? 4 : compact ? 8 : 16);
+        metadata.addView(trackBlock, trackParams);
         trackTitle = text(compact ? 16 : 20, themeColor(R.attr.radio_accent_role), true);
-        trackTitle.setGravity(Gravity.CENTER);
+        trackTitle.setGravity(wide ? Gravity.CENTER : Gravity.START);
         trackTitle.setMaxLines(nameLines);
         trackTitle.setEllipsize(TextUtils.TruncateAt.END);
         trackBlock.addView(trackTitle, wrap(MATCH_PARENT));
         trackArtist = text(compact ? 14 : 16, getColor(R.color.radio_muted), false);
-        trackArtist.setGravity(Gravity.CENTER);
+        trackArtist.setGravity(wide ? Gravity.CENTER : Gravity.START);
         trackArtist.setMaxLines(1);
         trackArtist.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams artistParams = wrap(MATCH_PARENT);
@@ -388,18 +397,13 @@ public final class RadioActivity extends Activity {
         trackBlock.addView(trackArtist, artistParams);
         trackBlock.setMinimumHeight(trackTitle.getLineHeight() * nameLines + dp(4) + trackArtist.getLineHeight());
 
-        if (!compact) {
-            View lowerSpace = new View(this);
-            panel.addView(lowerSpace, new LinearLayout.LayoutParams(1, 0, 1f));
-        }
-
         LinearLayout controls = horizontal();
         controls.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams controlsParams = wrap(MATCH_PARENT);
-        controlsParams.topMargin = dp(compact ? 12 : 18);
+        controlsParams.topMargin = dp(!wide ? 8 : compact ? 12 : 18);
         panel.addView(controls, controlsParams);
 
-        int buttonSize = compact ? 50 : 58;
+        int buttonSize = !wide ? 46 : compact ? 50 : 58;
         previous = iconButton(PREVIOUS, getColor(R.color.radio_text), R.string.previous, () -> model.step(-1));
         previous.setBackground(actionBackground(getColor(R.color.radio_surface), 15, themeColor(R.attr.radio_edge_role)));
         controls.addView(previous, size(buttonSize, buttonSize));
@@ -407,7 +411,7 @@ public final class RadioActivity extends Activity {
         playButton = horizontal();
         playButton.setGravity(Gravity.CENTER);
         playButton.setPadding(dp(14), 0, dp(16), 0);
-        playButton.setMinimumWidth(dp(compact ? 120 : 142));
+        playButton.setMinimumWidth(dp(!wide ? 108 : compact ? 120 : 142));
         playButton.setBackground(actionBackground(themeColor(R.attr.radio_accent_role), 16, Color.TRANSPARENT));
         buttonLike(playButton, null, () -> model.togglePlayback());
         playIcon = new RadioGlyph(this, PLAY, themeColor(R.attr.radio_on_accent_role), 24);
@@ -427,10 +431,12 @@ public final class RadioActivity extends Activity {
         return panel;
     }
 
-    private void addVisualStage(LinearLayout panel, boolean compact) {
-        compactStage = compact;
+    private void addVisualStage(LinearLayout panel, boolean compact, boolean wide) {
+        collapsibleStage = !wide;
         visualStage = new FrameLayout(this);
-        panel.addView(visualStage, size(MATCH_PARENT, compact ? 58 : 132));
+        LinearLayout.LayoutParams stageParams = wide
+                ? new LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f) : size(MATCH_PARENT, 58);
+        panel.addView(visualStage, stageParams);
 
         int accent = themeColor(R.attr.radio_accent_role);
         signal = new RadioGlyph(this, SIGNAL, accent, 88);
@@ -445,9 +451,9 @@ public final class RadioActivity extends Activity {
 
         bufferPanel = vertical();
         bufferPanel.setGravity(Gravity.CENTER_HORIZONTAL);
-        int inset = dp(compact ? 24 : 52);
+        int inset = dp(!wide ? 6 : compact ? 24 : 52);
         bufferPanel.setPadding(inset, 0, inset, 0);
-        bufferAmount = text(compact ? 14 : 17, getColor(R.color.radio_text), true);
+        bufferAmount = text(!wide ? 11 : compact ? 14 : 17, getColor(R.color.radio_text), true);
         bufferAmount.setGravity(Gravity.CENTER);
         bufferAmount.setMaxLines(2);
         bufferAmount.setEllipsize(TextUtils.TruncateAt.END);
@@ -547,11 +553,8 @@ public final class RadioActivity extends Activity {
         moveSearch(0f, true);
     }
 
-    /** As wide as the header allows without hiding the title, between 200 and 360 dp. */
     private int expandedSearchWidth() {
-        int titleText = (int) Math.ceil(title.getPaint().measureText(title.getText().toString()));
-        int room = searchBox.getWidth() + title.getWidth() - titleText - dp(16);
-        return Math.max(dp(200), Math.min(dp(360), room));
+        return Math.min(dp(360), searchBox.getWidth() + searchSpace.getWidth());
     }
 
     /**
@@ -607,8 +610,9 @@ public final class RadioActivity extends Activity {
         super.onBackPressed();
     }
 
-    private View catalogPanel() {
+    private View catalogPanel(int catalogWidth, boolean stacked) {
         LinearLayout catalog = vertical();
+        addCatalogHeader(catalog, catalogWidth, stacked);
 
         // Remembers a finger on the list, which the list must never be moved under.
         FrameLayout listFrame = new FrameLayout(this) {
@@ -623,7 +627,9 @@ public final class RadioActivity extends Activity {
                 return super.dispatchTouchEvent(event);
             }
         };
-        catalog.addView(listFrame, new LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f));
+        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f);
+        listParams.topMargin = dp(12);
+        catalog.addView(listFrame, listParams);
         stationList = new ListView(this);
         stationList.setOnScrollListener(new AbsListView.OnScrollListener() {
             @Override public void onScrollStateChanged(AbsListView view, int state) {
@@ -661,6 +667,11 @@ public final class RadioActivity extends Activity {
                 button.setBackground(actionBackground(fill, 14, Color.TRANSPARENT));
             }
             displayedHiddenTabs = state.hiddenTabs;
+            if (tabScroll != null) {
+                TextView selected = tabs.get(state.tab);
+                selected.post(() -> selected.requestRectangleOnScreen(
+                        new Rect(0, 0, selected.getWidth(), selected.getHeight()), true));
+            }
         }
 
         boolean opened = displayedTab == null;
@@ -741,11 +752,10 @@ public final class RadioActivity extends Activity {
             case CONNECTING, BUFFERING, RECONNECTING -> true;
             default -> false;
         };
-        // A compact player keeps its stage while a station plays, also between stations and without a visualization,
-        // so that switching stations does not move the panel; it folds the stage only when playback stops.
+        // In the stacked layout, collapse the visualization when playback stops to leave room for the station list.
         boolean playing = uiStarted && playback.active();
-        visualStage.setVisibility(!compactStage || fetching || drawingSound || playing ? View.VISIBLE : View.GONE);
-        signal.setVisibility(!compactStage && !fetching && !drawingSound ? View.VISIBLE : View.GONE);
+        visualStage.setVisibility(!collapsibleStage || fetching || drawingSound || playing ? View.VISIBLE : View.GONE);
+        signal.setVisibility(!collapsibleStage && !fetching && !drawingSound ? View.VISIBLE : View.GONE);
         boolean bufferWasVisible = bufferPanel.getVisibility() == View.VISIBLE;
         bufferPanel.setVisibility(fetching ? View.VISIBLE : View.GONE);
         if (fetching) {

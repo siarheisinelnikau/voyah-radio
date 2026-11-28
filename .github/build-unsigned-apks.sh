@@ -14,8 +14,15 @@ mkdir -p "$out"
 
 case "$GH_REPO" in
   siarheisinelnikau/voyah-radio)
-    bash "$work/gradlew" -p "$work" :app:testReleaseUnitTest :app:lintRelease :app:assembleRelease
-    cp "$work/app/build/outputs/apk/release/app-release-unsigned.apk" "$out/VoyahRadio-$tag.apk"
+    if [[ -d "$work/app/src/mazdaEz6" ]]; then
+      bash "$work/gradlew" -p "$work" :app:testVoyahReleaseUnitTest :app:testMazdaEz6ReleaseUnitTest \
+        :app:lintVoyahRelease :app:lintMazdaEz6Release :app:assembleVoyahRelease :app:assembleMazdaEz6Release
+      cp "$work/app/build/outputs/apk/voyah/release/app-voyah-release-unsigned.apk" "$out/VoyahRadio-$tag.apk"
+      cp "$work/app/build/outputs/apk/mazdaEz6/release/app-mazdaEz6-release-unsigned.apk" "$out/MazdaEZ6Radio-$tag.apk"
+    else
+      bash "$work/gradlew" -p "$work" :app:testReleaseUnitTest :app:lintRelease :app:assembleRelease
+      cp "$work/app/build/outputs/apk/release/app-release-unsigned.apk" "$out/VoyahRadio-$tag.apk"
+    fi
     ;;
   siarheisinelnikau/voyah-music)
     bash "$work/gradlew" -p "$work" :shared:testReleaseUnitTest :player:testReleaseUnitTest       :player:lintRelease :transfer:lintRelease :player:assembleRelease :transfer:assembleRelease
